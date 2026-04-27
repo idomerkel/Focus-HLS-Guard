@@ -3,22 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Focus HLS - Guard Sync</title>
+    <title>Focus HLS - Guard Production Node</title>
     <style>
         :root { --cyber-blue: #00b4d8; --dark-bg: #0b0f19; --panel-bg: #1a2235; --focus-orange: #f77f00; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--dark-bg); color: #caf0f8; margin: 0; padding: 0; overflow-x: hidden; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--dark-bg); color: #caf0f8; margin: 0; padding: 0; overflow-x: hidden; }
         
-        .header-logo { width: 100%; max-width: 100%; height: auto; display: block; border-bottom: 2px solid var(--cyber-blue); }
-        .container { background: var(--panel-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--cyber-blue); width: 94%; max-width: 400px; margin: 15px auto; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; font-size: 0.8em; color: var(--cyber-blue); margin-bottom: 4px; }
-        input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; font-size: 16px; }
-        button { background: var(--cyber-blue); color: #000; border: none; padding: 18px; font-weight: bold; width: 100%; cursor: pointer; border-radius: 4px; margin-top: 10px; }
+        /* LOGO: Locked to screen width */
+        .header-logo { width: 100% !important; max-width: 100% !important; height: auto; display: block; border-bottom: 2px solid var(--cyber-blue); }
+        
+        .container { background: var(--panel-bg); padding: 25px; border-radius: 10px; border: 1px solid var(--cyber-blue); width: 94%; max-width: 450px; margin: 20px auto; box-shadow: 0 0 20px rgba(0, 180, 216, 0.2); }
+        .form-group { margin-bottom: 12px; text-align: left; }
+        .form-group label { display: block; font-size: 0.8em; color: var(--cyber-blue); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; font-size: 16px; outline: none; }
+        input:focus { border-color: var(--cyber-blue); }
+        button { background: var(--cyber-blue); color: #000; border: none; padding: 20px; font-weight: bold; font-size: 1.1em; width: 100%; cursor: pointer; border-radius: 4px; margin-top: 15px; text-transform: uppercase; }
+        
         #active-screen { display: none; text-align: center; }
-        .pulse { color: #00ff00; font-weight: bold; animation: blink 2s infinite; margin: 20px 0; }
-        @keyframes blink { 50% { opacity: 0.3; } }
-        .debug-val { font-family: monospace; font-size: 0.7em; color: #555; }
+        .pulse { color: #00ff00; font-weight: bold; animation: blink 2s infinite; margin: 30px 0; font-size: 1.2em; }
+        @keyframes blink { 50% { opacity: 0.2; } }
+        .info-sub { color: #888; font-size: 0.85em; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -27,19 +31,21 @@
 
     <div class="container" id="setup-screen">
         <h2 style="text-align: center; margin-top: 0; color: var(--cyber-blue);">Guard Registration</h2>
-        <div class="form-group"><label>Full Name</label><input type="text" id="gName"></div>
+        <div class="form-group"><label>Full Name</label><input type="text" id="gName" placeholder="Required"></div>
         <div class="form-group"><label>Age</label><input type="number" id="gAge"></div>
         <div class="form-group"><label>Tag Number</label><input type="text" id="gTag"></div>
-        <div class="form-group"><label>Work Location</label><input type="text" id="gLoc" value="Main Mall"></div>
+        <div class="form-group"><label>Blood Type</label><input type="text" id="gBlood"></div>
+        <div class="form-group"><label>Emergency Contact</label><input type="text" id="gEmerg"></div>
+        <div class="form-group"><label>Supervisor POC</label><input type="text" id="gSuper"></div>
+        <div class="form-group"><label>Work Location</label><input type="text" id="gLoc" value="Main Mall - Gate A"></div>
         <button id="startBtn">AUTHORIZE & START SHIFT</button>
-        <p id="https-warn" style="color:red; font-size:0.7em; display:none; text-align:center;">⚠ HTTPS REQUIRED FOR SENSORS</p>
     </div>
 
     <div class="container" id="active-screen">
-        <div class="pulse">● SECURE TELEMETRY ACTIVE</div>
-        <div class="debug-val" id="sensor-debug">Sensor Data: 0.00, 0.00, 0.00</div>
-        <p id="cmd-msg" style="color: var(--focus-orange); font-size: 0.85em; font-weight:bold;"></p>
-        <button style="background: var(--focus-orange)" onclick="location.reload()">END SHIFT</button>
+        <div class="pulse">● ENCRYPTED TELEMETRY ACTIVE</div>
+        <p class="info-sub">Real-time hardware sensors are transmitting to the Command Center.</p>
+        <p id="cmd-msg" style="color: var(--focus-orange); font-weight: bold; min-height: 20px;"></p>
+        <button style="background: var(--focus-orange)" onclick="location.reload()">TERMINATE SHIFT</button>
     </div>
 
     <script type="module">
@@ -50,16 +56,19 @@
             apiKey: "AIzaSyAB2OJTPCyJaZ0BpE-FAEKdPW143VE3YDo",
             authDomain: "focushls-live.firebaseapp.com",
             databaseURL: "https://focushls-live-default-rtdb.firebaseio.com",
-            projectId: "focushls-live"
+            projectId: "focushls-live",
+            storageBucket: "focushls-live.firebasestorage.app",
+            messagingSenderId: "155686668050",
+            appId: "1:155686668050:web:ec06db6910733f53bad5cb"
         };
 
         const app = initializeApp(firebaseConfig), db = getDatabase(app);
-        let buffer = [], isActive = false;
+        let buffer = [], isActive = false, sessionID = "";
 
-        // AUTOFILL
+        // AUTOFILL LOGIC
         window.onload = () => {
-            if(window.location.protocol !== 'https:') document.getElementById('https-warn').style.display='block';
-            ['gName', 'gAge', 'gTag', 'gLoc'].forEach(id => {
+            const fields = ['gName', 'gAge', 'gTag', 'gBlood', 'gEmerg', 'gSuper', 'gLoc'];
+            fields.forEach(id => {
                 const val = localStorage.getItem(id);
                 if (val) document.getElementById(id).value = val;
             });
@@ -67,49 +76,60 @@
 
         document.getElementById('startBtn').onclick = async () => {
             const name = document.getElementById('gName').value;
-            if(!name) return alert("Enter Name");
+            if(!name) return alert("Guard Name is required.");
 
-            ['gName', 'gAge', 'gTag', 'gLoc'].forEach(id => localStorage.setItem(id, document.getElementById(id).value));
+            // SAVE FOR AUTOFILL
+            const fields = ['gName', 'gAge', 'gTag', 'gBlood', 'gEmerg', 'gSuper', 'gLoc'];
+            fields.forEach(id => localStorage.setItem(id, document.getElementById(id).value));
 
-            if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
+            // SENSOR PERMISSION
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                const res = await DeviceMotionEvent.requestPermission();
+                if(res !== 'granted') return alert("Sensor permission is mandatory.");
+            }
 
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('active-screen').style.display = 'block';
             isActive = true;
 
-            const sessionID = Date.now() + "_" + name.replace(/\s+/g, '');
+            // UNIQUE SESSION ID (Prevents overwriting)
+            sessionID = Date.now() + "_" + name.replace(/\s+/g, '');
             const gRef = ref(db, 'active_shifts/' + sessionID);
             
             set(gRef, { 
-                info: { name, location: document.getElementById('gLoc').value }, 
+                info: { 
+                    name, age: document.getElementById('gAge').value, tag: document.getElementById('gTag').value,
+                    blood: document.getElementById('gBlood').value, emergency: document.getElementById('gEmerg').value,
+                    supervisor: document.getElementById('gSuper').value, location: document.getElementById('gLoc').value 
+                }, 
                 status: "Shift Started", 
                 sessionStart: new Date().toLocaleString(),
                 timestamp: Date.now() 
             });
 
-            // Listen for Manager Test Overrides
+            // COMMAND LISTENER (For Manager Tests)
             onValue(ref(db, `active_shifts/${sessionID}/command`), (snap) => {
                 const cmd = snap.val();
                 if(cmd) {
-                    document.getElementById('cmd-msg').innerText = `MANAGER TEST: ${cmd.status}`;
+                    document.getElementById('cmd-msg').innerText = `MANAGER ALERT: ${cmd.status}`;
                     update(gRef, { status: cmd.status, isTest: true, timestamp: Date.now() });
                 }
             });
 
+            // HARDWARE SENSOR HOOK
             window.addEventListener('devicemotion', (e) => {
                 if(!isActive) return;
-                const frame = {
+                buffer.push({
                     ax: e.accelerationIncludingGravity.x?.toFixed(2) || 0,
                     ay: e.accelerationIncludingGravity.y?.toFixed(2) || 0,
                     az: e.accelerationIncludingGravity.z?.toFixed(2) || 0,
                     gx: e.rotationRate?.alpha?.toFixed(1) || 0,
                     gy: e.rotationRate?.beta?.toFixed(1) || 0,
                     gz: e.rotationRate?.gamma?.toFixed(1) || 0
-                };
-                buffer.push(frame);
-                if(buffer.length % 10 === 0) document.getElementById('sensor-debug').innerText = `X:${frame.ax} Y:${frame.ay} Z:${frame.az}`;
+                });
             });
 
+            // 3-SECOND BUFFER UPLOAD
             setInterval(() => {
                 if(isActive && buffer.length > 0) {
                     update(gRef, { batched_telemetry: buffer, timestamp: Date.now() });
