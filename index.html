@@ -18,6 +18,7 @@
         #active-screen { display: none; text-align: center; }
         .pulse { color: #00ff00; font-weight: bold; animation: blink 2s infinite; margin: 20px 0; }
         @keyframes blink { 50% { opacity: 0.3; } }
+        .debug-val { font-family: monospace; font-size: 0.7em; color: #555; }
     </style>
 </head>
 <body>
@@ -29,16 +30,15 @@
         <div class="form-group"><label>Full Name</label><input type="text" id="gName"></div>
         <div class="form-group"><label>Age</label><input type="number" id="gAge"></div>
         <div class="form-group"><label>Tag Number</label><input type="text" id="gTag"></div>
-        <div class="form-group"><label>Blood Type</label><input type="text" id="gBlood"></div>
-        <div class="form-group"><label>Emergency Contact</label><input type="text" id="gEmerg"></div>
-        <div class="form-group"><label>Supervisor POC</label><input type="text" id="gSuper"></div>
-        <div class="form-group"><label>Work Location</label><input type="text" id="gLoc"></div>
+        <div class="form-group"><label>Work Location</label><input type="text" id="gLoc" value="Main Mall"></div>
         <button id="startBtn">AUTHORIZE & START SHIFT</button>
+        <p id="https-warn" style="color:red; font-size:0.7em; display:none; text-align:center;">⚠ HTTPS REQUIRED FOR SENSORS</p>
     </div>
 
     <div class="container" id="active-screen">
         <div class="pulse">● SECURE TELEMETRY ACTIVE</div>
-        <p id="cmd-msg" style="color: var(--focus-orange); font-size: 0.85em;"></p>
+        <div class="debug-val" id="sensor-debug">Sensor Data: 0.00, 0.00, 0.00</div>
+        <p id="cmd-msg" style="color: var(--focus-orange); font-size: 0.85em; font-weight:bold;"></p>
         <button style="background: var(--focus-orange)" onclick="location.reload()">END SHIFT</button>
     </div>
 
@@ -56,10 +56,10 @@
         const app = initializeApp(firebaseConfig), db = getDatabase(app);
         let buffer = [], isActive = false;
 
-        // AUTOFILL: Load saved data on startup
+        // AUTOFILL
         window.onload = () => {
-            const fields = ['gName', 'gAge', 'gTag', 'gBlood', 'gEmerg', 'gSuper', 'gLoc'];
-            fields.forEach(id => {
+            if(window.location.protocol !== 'https:') document.getElementById('https-warn').style.display='block';
+            ['gName', 'gAge', 'gTag', 'gLoc'].forEach(id => {
                 const val = localStorage.getItem(id);
                 if (val) document.getElementById(id).value = val;
             });
@@ -69,9 +69,7 @@
             const name = document.getElementById('gName').value;
             if(!name) return alert("Enter Name");
 
-            // SAVE DATA for next time
-            const fields = ['gName', 'gAge', 'gTag', 'gBlood', 'gEmerg', 'gSuper', 'gLoc'];
-            fields.forEach(id => localStorage.setItem(id, document.getElementById(id).value));
+            ['gName', 'gAge', 'gTag', 'gLoc'].forEach(id => localStorage.setItem(id, document.getElementById(id).value));
 
             if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission();
 
@@ -79,39 +77,37 @@
             document.getElementById('active-screen').style.display = 'block';
             isActive = true;
 
-            // UNIQUE SESSION ID: Prevents overwriting old shifts
             const sessionID = Date.now() + "_" + name.replace(/\s+/g, '');
             const gRef = ref(db, 'active_shifts/' + sessionID);
             
             set(gRef, { 
-                info: { 
-                    name, age: document.getElementById('gAge').value, tag: document.getElementById('gTag').value,
-                    blood: document.getElementById('gBlood').value, emergency: document.getElementById('gEmerg').value,
-                    supervisor: document.getElementById('gSuper').value, location: document.getElementById('gLoc').value 
-                }, 
+                info: { name, location: document.getElementById('gLoc').value }, 
                 status: "Shift Started", 
                 sessionStart: new Date().toLocaleString(),
                 timestamp: Date.now() 
             });
 
+            // Listen for Manager Test Overrides
             onValue(ref(db, `active_shifts/${sessionID}/command`), (snap) => {
-                if(snap.val()) {
-                    const cmd = snap.val();
-                    document.getElementById('cmd-msg').innerText = `Remote Command: ${cmd.status}`;
-                    update(gRef, { status: cmd.status, isTest: true });
+                const cmd = snap.val();
+                if(cmd) {
+                    document.getElementById('cmd-msg').innerText = `MANAGER TEST: ${cmd.status}`;
+                    update(gRef, { status: cmd.status, isTest: true, timestamp: Date.now() });
                 }
             });
 
             window.addEventListener('devicemotion', (e) => {
                 if(!isActive) return;
-                buffer.push({
+                const frame = {
                     ax: e.accelerationIncludingGravity.x?.toFixed(2) || 0,
                     ay: e.accelerationIncludingGravity.y?.toFixed(2) || 0,
                     az: e.accelerationIncludingGravity.z?.toFixed(2) || 0,
-                    gx: e.rotationRate.alpha?.toFixed(1) || 0,
-                    gy: e.rotationRate.beta?.toFixed(1) || 0,
-                    gz: e.rotationRate.gamma?.toFixed(1) || 0
-                });
+                    gx: e.rotationRate?.alpha?.toFixed(1) || 0,
+                    gy: e.rotationRate?.beta?.toFixed(1) || 0,
+                    gz: e.rotationRate?.gamma?.toFixed(1) || 0
+                };
+                buffer.push(frame);
+                if(buffer.length % 10 === 0) document.getElementById('sensor-debug').innerText = `X:${frame.ax} Y:${frame.ay} Z:${frame.az}`;
             });
 
             setInterval(() => {
