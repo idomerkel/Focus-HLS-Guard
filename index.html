@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guard Hub - FOCUS HLS</title>
+    <style>
+        :root {
+            --bg-dark: #0a0f1c;
+            --cyber-blue: #00d2ff;
+            --focus-orange: #f07d00;
+            --text-light: #e0eaf5;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            border: 1px solid var(--cyber-blue);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+        }
+        h2 { color: var(--focus-orange); text-align: center; }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #111a2e;
+            border: 1px solid var(--cyber-blue);
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: var(--focus-orange);
+            border: none;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background: #ff911a; box-shadow: 0 0 10px var(--focus-orange); }
+        .data-readout {
+            font-family: monospace;
+            background: #000;
+            padding: 10px;
+            color: var(--cyber-blue);
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>FOCUS HLS - Guard Interface</h2>
+    
+    <div id="setup-screen">
+        <input type="text" id="guardName" placeholder="Guard Name" required>
+        <input type="text" id="tagNumber" placeholder="Tag Number">
+        <input type="text" id="location" placeholder="Post Location (e.g., North Gate)">
+        <button onclick="startShift()">Start Shift & Enable Sensors</button>
+    </div>
+
+    <div id="active-screen" style="display: none;">
+        <h3 id="status-text" style="color: var(--cyber-blue);">Shift Active</h3>
+        <p>Streaming sensor data to headquarters...</p>
+        <div class="data-readout" id="gyro-data">Waiting for sensor data...</div>
+        <button onclick="endShift()" style="background: #ff3333;">End Shift</button>
+    </div>
+</div>
+
+<script>
+    let isStreaming = false;
+
+    async function startShift() {
+        const name = document.getElementById('guardName').value;
+        if (!name) return alert("Please enter your name.");
+
+        // iOS 13+ requires explicit permission to access motion sensors
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+                const permissionState = await DeviceMotionEvent.requestPermission();
+                if (permissionState === 'granted') {
+                    beginStreaming();
+                } else {
+                    alert("Sensor access denied.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Error requesting sensor access.");
+            }
+        } else {
+            // Non-iOS devices usually don't need explicit permission
+            beginStreaming();
+        }
+    }
+
+    function beginStreaming() {
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('active-screen').style.display = 'block';
+        isStreaming = true;
+
+        window.addEventListener('devicemotion', handleMotion, true);
+        
+        // TODO: Initialize Firebase/WebSocket here
+        // Notify server that this guard's shift has started
+    }
+
+    function handleMotion(event) {
+        if (!isStreaming) return;
+
+        // Capture Acceleration (including gravity)
+        const x = event.accelerationIncludingGravity.x ? event.accelerationIncludingGravity.x.toFixed(2) : 0;
+        const y = event.accelerationIncludingGravity.y ? event.accelerationIncludingGravity.y.toFixed(2) : 0;
+        const z = event.accelerationIncludingGravity.z ? event.accelerationIncludingGravity.z.toFixed(2) : 0;
+
+        document.getElementById('gyro-data').innerHTML = `X: ${x} <br>Y: ${y} <br>Z: ${z}`;
+
+        // TODO: Send this data to your Server/Firebase Database
+        /* Example:
+           database.ref('guards/' + guardId + '/sensors').set({ x: x, y: y, z: z });
+        */
+    }
+
+    function endShift() {
+        isStreaming = false;
+        window.removeEventListener('devicemotion', handleMotion, true);
+        document.getElementById('setup-screen').style.display = 'block';
+        document.getElementById('active-screen').style.display = 'none';
+        
+        // TODO: Notify server shift has ended
+    }
+</script>
+</body>
+</html>
