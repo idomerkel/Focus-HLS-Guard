@@ -1,70 +1,146 @@
-<script type="module">
-    // 1. Import the new Modular Firebase libraries from the CDN
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-
-    // 2. Your exact Firebase configuration (with the databaseURL added)
-    const firebaseConfig = {
-      apiKey: "AIzaSyAB2OJTPCyJaZ0BpE-FAEKdPW143VE3YDo",
-      authDomain: "focushls-live.firebaseapp.com",
-      databaseURL: "https://focushls-live-default-rtdb.firebaseio.com", // <-- Added this
-      projectId: "focushls-live",
-      storageBucket: "focushls-live.firebasestorage.app",
-      messagingSenderId: "155686668050",
-      appId: "1:155686668050:web:ec06db6910733f53bad5cb"
-    };
-
-    // 3. Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-
-    // Make functions globally available since we are inside a module
-    window.startShift = function() {
-        const name = document.getElementById('guardName').value;
-        if (!name) return alert("Please enter your name.");
-        
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('active-screen').style.display = 'block';
-        
-        // Push the initial "Shift Started" status to Firebase
-        updateFirebaseStatus(name, "Shift Started");
-    };
-
-    window.endShift = function() {
-        const name = document.getElementById('guardName').value;
-        document.getElementById('setup-screen').style.display = 'block';
-        document.getElementById('active-screen').style.display = 'none';
-        
-        updateFirebaseStatus(name, "Shift Ended");
-    };
-
-    // 4. THE BRIDGE: This function pushes your Edge AI status to the database
-    window.updateFirebaseStatus = function(guardName, currentStatus) {
-        const statusRef = ref(database, 'active_shifts/' + guardName);
-        
-        set(statusRef, {
-            status: currentStatus,
-            timestamp: Date.now()
-        }).then(() => {
-            console.log(`Successfully sent status: ${currentStatus}`);
-            document.getElementById('gyro-data').innerHTML = `Current Status Sent: <br><strong>${currentStatus}</strong>`;
-        }).catch((error) => {
-            console.error("Error writing to Firebase:", error);
-        });
-    };
-
-    // --- YOUR EDGE AI LOGIC GOES HERE ---
-    // Instead of streaming raw gyro data, you would hook up your existing 
-    // local recognition code here. When your code detects a change, simply call:
-    // updateFirebaseStatus(document.getElementById('guardName').value, "Walking");
-    
-    // For testing right now, let's simulate status changes every 5 seconds
-    setInterval(() => {
-        if(document.getElementById('active-screen').style.display === 'block') {
-            const statuses = ["Walking", "Sitting", "Patrol", "Elevator"];
-            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-            updateFirebaseStatus(document.getElementById('guardName').value, randomStatus);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus HLS - Guard App</title>
+    <style>
+        :root {
+            --cyber-blue: #00b4d8;
+            --dark-bg: #0b0f19;
+            --panel-bg: #1a2235;
+            --text-light: #caf0f8;
+            --focus-orange: #f77f00;
         }
-    }, 5000);
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: var(--panel-bg);
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid var(--cyber-blue);
+            box-shadow: 0 0 15px rgba(0, 180, 216, 0.3);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 15px 0;
+            background: var(--dark-bg);
+            border: 1px solid var(--cyber-blue);
+            color: white;
+            border-radius: 5px;
+        }
+        button {
+            background-color: var(--cyber-blue);
+            color: var(--dark-bg);
+            border: none;
+            padding: 12px 20px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background-color: #0096c7;
+            box-shadow: 0 0 10px var(--cyber-blue);
+        }
+        .btn-end {
+            background-color: var(--focus-orange);
+            margin-top: 20px;
+        }
+        #active-screen {
+            display: none;
+        }
+        #gyro-data {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px dashed var(--cyber-blue);
+            background: rgba(0, 180, 216, 0.1);
+        }
+    </style>
+</head>
+<body>
 
-</script>
+    <div class="container" id="setup-screen">
+        <h2>Focus HLS Guard Login</h2>
+        <input type="text" id="guardName" placeholder="Enter Guard Name (e.g., Alex)">
+        <button onclick="startShift()">Start Shift</button>
+    </div>
+
+    <div class="container" id="active-screen">
+        <h2>Shift Active</h2>
+        <div id="gyro-data">Initializing Sensors...</div>
+        <button class="btn-end" onclick="endShift()">End Shift</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAB2OJTPCyJaZ0BpE-FAEKdPW143VE3YDo",
+            authDomain: "focushls-live.firebaseapp.com",
+            databaseURL: "https://focushls-live-default-rtdb.firebaseio.com",
+            projectId: "focushls-live",
+            storageBucket: "focushls-live.firebasestorage.app",
+            messagingSenderId: "155686668050",
+            appId: "1:155686668050:web:ec06db6910733f53bad5cb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        window.startShift = function() {
+            const name = document.getElementById('guardName').value;
+            if (!name) return alert("Please enter your name.");
+            
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('active-screen').style.display = 'block';
+            
+            updateFirebaseStatus(name, "Shift Started");
+        };
+
+        window.endShift = function() {
+            const name = document.getElementById('guardName').value;
+            document.getElementById('setup-screen').style.display = 'block';
+            document.getElementById('active-screen').style.display = 'none';
+            
+            updateFirebaseStatus(name, "Shift Ended");
+        };
+
+        window.updateFirebaseStatus = function(guardName, currentStatus) {
+            const statusRef = ref(database, 'active_shifts/' + guardName);
+            set(statusRef, {
+                status: currentStatus,
+                timestamp: Date.now()
+            }).then(() => {
+                console.log(`Successfully sent status: ${currentStatus}`);
+                document.getElementById('gyro-data').innerHTML = `Current Status Sent: <br><strong style="font-size: 1.2em;">${currentStatus}</strong>`;
+            }).catch((error) => {
+                console.error("Error writing to Firebase:", error);
+            });
+        };
+
+        // Simulate status changes every 5 seconds while shift is active
+        setInterval(() => {
+            if(document.getElementById('active-screen').style.display === 'block') {
+                const statuses = ["Walking", "Sitting", "Patrol", "Elevator"];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                updateFirebaseStatus(document.getElementById('guardName').value, randomStatus);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
