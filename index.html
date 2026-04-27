@@ -6,43 +6,21 @@
     <title>Focus HLS - Guard Interface</title>
     <style>
         :root {
-            --cyber-blue: #00b4d8;
-            --cyber-dark: #03045e;
-            --dark-bg: #0b0f19;
-            --panel-bg: #1a2235;
-            --text-light: #caf0f8;
-            --focus-orange: #f77f00;
+            --cyber-blue: #00b4d8; --cyber-dark: #03045e; --dark-bg: #0b0f19;
+            --panel-bg: #1a2235; --text-light: #caf0f8; --focus-orange: #f77f00;
         }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--dark-bg);
-            color: var(--text-light);
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
-        }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--dark-bg); color: var(--text-light); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .header-logo { max-width: 300px; margin-bottom: 20px; }
-        .container {
-            background-color: var(--panel-bg); padding: 30px;
-            border-radius: 10px; border: 1px solid var(--cyber-blue);
-            box-shadow: 0 0 20px rgba(0, 180, 216, 0.2);
-            width: 100%; max-width: 450px;
-        }
-        .form-group { margin-bottom: 15px; text-align: left; }
-        .form-group label { display: block; font-size: 0.9em; margin-bottom: 5px; color: var(--cyber-blue); }
-        input {
-            width: 90%; padding: 10px; background: rgba(0,0,0,0.5);
-            border: 1px solid var(--cyber-dark); color: white; border-radius: 5px;
-        }
-        input:focus { outline: none; border-color: var(--cyber-blue); }
-        button {
-            background-color: var(--cyber-blue); color: var(--dark-bg);
-            border: none; padding: 15px; font-weight: bold; font-size: 1.1em;
-            border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px;
-        }
+        .container { background-color: var(--panel-bg); padding: 30px; border-radius: 10px; border: 1px solid var(--cyber-blue); box-shadow: 0 0 20px rgba(0, 180, 216, 0.2); width: 100%; max-width: 450px; }
+        .form-group { margin-bottom: 12px; text-align: left; }
+        .form-group label { display: block; font-size: 0.85em; margin-bottom: 3px; color: var(--cyber-blue); }
+        input { width: 90%; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid var(--cyber-dark); color: white; border-radius: 5px; }
+        button { background-color: var(--cyber-blue); color: var(--dark-bg); border: none; padding: 15px; font-weight: bold; font-size: 1.1em; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px; }
         button:hover { box-shadow: 0 0 15px var(--cyber-blue); }
         .btn-end { background-color: var(--focus-orange); }
         #active-screen { display: none; text-align: center; }
-        .status-box { margin: 20px 0; padding: 20px; border: 1px dashed var(--cyber-blue); font-size: 1.2em; }
+        .status-box { margin: 15px 0; padding: 15px; border: 1px dashed var(--cyber-blue); font-size: 1.2em; }
+        .raw-data { font-family: monospace; font-size: 0.9em; color: #888; }
     </style>
 </head>
 <body>
@@ -56,14 +34,19 @@
         <div class="form-group"><label>Tag Number</label><input type="text" id="g_tag"></div>
         <div class="form-group"><label>Blood Type</label><input type="text" id="g_blood"></div>
         <div class="form-group"><label>Emergency Contact</label><input type="text" id="g_emergency"></div>
+        <div class="form-group"><label>Supervisor POC</label><input type="text" id="g_supervisor"></div>
         <div class="form-group"><label>Location / Entrance</label><input type="text" id="g_location" value="Main Mall - Gate A"></div>
         <button onclick="startShift()">INITIATE SHIFT</button>
     </div>
 
     <div class="container" id="active-screen">
         <h2 style="color: var(--focus-orange);">Shift Active</h2>
-        <p>Transmitting biometric and gyro telemetry...</p>
-        <div class="status-box" id="current-status">Initializing...</div>
+        <div class="status-box">
+            <div>Current AI Tag:</div>
+            <strong id="current-status" style="font-size: 1.3em; color: var(--cyber-blue);">Initializing...</strong>
+        </div>
+        <div class="raw-data" id="raw-gyro">X: 0.00 | Y: 0.00 | Z: 0.00</div>
+        <br>
         <button class="btn-end" onclick="endShift()">TERMINATE SHIFT</button>
     </div>
 
@@ -83,42 +66,49 @@
 
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
-        let statusInterval;
+        let statusInterval, gyroInterval;
 
         window.startShift = function() {
             const name = document.getElementById('g_name').value;
-            if (!name) return alert("Name is required to initiate shift.");
+            if (!name) return alert("Name is required.");
             
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('active-screen').style.display = 'block';
             
-            // Push all guard details to Firebase
             const guardRef = ref(database, 'active_shifts/' + name);
             set(guardRef, {
                 info: {
-                    name: name,
-                    age: document.getElementById('g_age').value,
-                    tag: document.getElementById('g_tag').value,
-                    bloodType: document.getElementById('g_blood').value,
-                    emergencyContact: document.getElementById('g_emergency').value,
+                    name: name, age: document.getElementById('g_age').value,
+                    tag: document.getElementById('g_tag').value, bloodType: document.getElementById('g_blood').value,
+                    emergencyContact: document.getElementById('g_emergency').value, supervisor: document.getElementById('g_supervisor').value,
                     location: document.getElementById('g_location').value
                 },
                 status: "Shift Started",
+                gyro: { x: "0.00", y: "0.00", z: "0.00" },
                 timestamp: Date.now()
             });
 
-            // Simulate AI Gyro movement recognition
+            // Fast Interval: Stream Raw Gyro Data (Every 1 Second)
+            gyroInterval = setInterval(() => {
+                const x = (Math.random() * 4 - 2).toFixed(2);
+                const y = (Math.random() * 4 - 2).toFixed(2);
+                const z = (Math.random() * 4 - 2).toFixed(2);
+                update(guardRef, { gyro: { x, y, z } });
+                document.getElementById('raw-gyro').innerText = `X: ${x} | Y: ${y} | Z: ${z}`;
+            }, 1000);
+
+            // Slow Interval: AI Status Recognition (Every 6 Seconds)
             statusInterval = setInterval(() => {
-                const statuses = ["Walking", "Sitting", "Patrol", "Going up an elevator", "Climbing steps"];
+                const statuses = ["Walking", "Sitting", "Patrol", "Going up elevator", "Climbing steps", "Talking"];
                 const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
                 update(guardRef, { status: randomStatus, timestamp: Date.now() });
-                document.getElementById('current-status').innerHTML = `<strong>${randomStatus}</strong>`;
-            }, 5000);
+                document.getElementById('current-status').innerText = randomStatus;
+            }, 6000);
         };
 
         window.endShift = function() {
             const name = document.getElementById('g_name').value;
-            clearInterval(statusInterval);
+            clearInterval(statusInterval); clearInterval(gyroInterval);
             update(ref(database, 'active_shifts/' + name), { status: "Offline", timestamp: Date.now() });
             document.getElementById('setup-screen').style.display = 'block';
             document.getElementById('active-screen').style.display = 'none';
