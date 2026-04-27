@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Focus HLS - Guard App</title>
+    <title>Focus HLS - Guard Interface</title>
     <style>
         :root {
             --cyber-blue: #00b4d8;
+            --cyber-dark: #03045e;
             --dark-bg: #0b0f19;
             --panel-bg: #1a2235;
             --text-light: #caf0f8;
@@ -16,78 +17,59 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--dark-bg);
             color: var(--text-light);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
         }
+        .header-logo { max-width: 300px; margin-bottom: 20px; }
         .container {
-            background-color: var(--panel-bg);
-            padding: 30px;
-            border-radius: 10px;
-            border: 1px solid var(--cyber-blue);
-            box-shadow: 0 0 15px rgba(0, 180, 216, 0.3);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
+            background-color: var(--panel-bg); padding: 30px;
+            border-radius: 10px; border: 1px solid var(--cyber-blue);
+            box-shadow: 0 0 20px rgba(0, 180, 216, 0.2);
+            width: 100%; max-width: 450px;
         }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; font-size: 0.9em; margin-bottom: 5px; color: var(--cyber-blue); }
         input {
-            width: 90%;
-            padding: 10px;
-            margin: 15px 0;
-            background: var(--dark-bg);
-            border: 1px solid var(--cyber-blue);
-            color: white;
-            border-radius: 5px;
+            width: 90%; padding: 10px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--cyber-dark); color: white; border-radius: 5px;
         }
+        input:focus { outline: none; border-color: var(--cyber-blue); }
         button {
-            background-color: var(--cyber-blue);
-            color: var(--dark-bg);
-            border: none;
-            padding: 12px 20px;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.3s;
+            background-color: var(--cyber-blue); color: var(--dark-bg);
+            border: none; padding: 15px; font-weight: bold; font-size: 1.1em;
+            border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px;
         }
-        button:hover {
-            background-color: #0096c7;
-            box-shadow: 0 0 10px var(--cyber-blue);
-        }
-        .btn-end {
-            background-color: var(--focus-orange);
-            margin-top: 20px;
-        }
-        #active-screen {
-            display: none;
-        }
-        #gyro-data {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px dashed var(--cyber-blue);
-            background: rgba(0, 180, 216, 0.1);
-        }
+        button:hover { box-shadow: 0 0 15px var(--cyber-blue); }
+        .btn-end { background-color: var(--focus-orange); }
+        #active-screen { display: none; text-align: center; }
+        .status-box { margin: 20px 0; padding: 20px; border: 1px dashed var(--cyber-blue); font-size: 1.2em; }
     </style>
 </head>
 <body>
 
+    <img src="330902.jpg" alt="Focus HLS" class="header-logo" onerror="this.style.display='none'">
+
     <div class="container" id="setup-screen">
-        <h2>Focus HLS Guard Login</h2>
-        <input type="text" id="guardName" placeholder="Enter Guard Name (e.g., Alex)">
-        <button onclick="startShift()">Start Shift</button>
+        <h2 style="text-align: center; color: var(--cyber-blue);">Guard Initialization</h2>
+        <div class="form-group"><label>Full Name</label><input type="text" id="g_name" required></div>
+        <div class="form-group"><label>Age</label><input type="number" id="g_age"></div>
+        <div class="form-group"><label>Tag Number</label><input type="text" id="g_tag"></div>
+        <div class="form-group"><label>Blood Type</label><input type="text" id="g_blood"></div>
+        <div class="form-group"><label>Emergency Contact</label><input type="text" id="g_emergency"></div>
+        <div class="form-group"><label>Location / Entrance</label><input type="text" id="g_location" value="Main Mall - Gate A"></div>
+        <button onclick="startShift()">INITIATE SHIFT</button>
     </div>
 
     <div class="container" id="active-screen">
-        <h2>Shift Active</h2>
-        <div id="gyro-data">Initializing Sensors...</div>
-        <button class="btn-end" onclick="endShift()">End Shift</button>
+        <h2 style="color: var(--focus-orange);">Shift Active</h2>
+        <p>Transmitting biometric and gyro telemetry...</p>
+        <div class="status-box" id="current-status">Initializing...</div>
+        <button class="btn-end" onclick="endShift()">TERMINATE SHIFT</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+        import { getDatabase, ref, set, update } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAB2OJTPCyJaZ0BpE-FAEKdPW143VE3YDo",
@@ -101,46 +83,46 @@
 
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
+        let statusInterval;
 
         window.startShift = function() {
-            const name = document.getElementById('guardName').value;
-            if (!name) return alert("Please enter your name.");
+            const name = document.getElementById('g_name').value;
+            if (!name) return alert("Name is required to initiate shift.");
             
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('active-screen').style.display = 'block';
             
-            updateFirebaseStatus(name, "Shift Started");
+            // Push all guard details to Firebase
+            const guardRef = ref(database, 'active_shifts/' + name);
+            set(guardRef, {
+                info: {
+                    name: name,
+                    age: document.getElementById('g_age').value,
+                    tag: document.getElementById('g_tag').value,
+                    bloodType: document.getElementById('g_blood').value,
+                    emergencyContact: document.getElementById('g_emergency').value,
+                    location: document.getElementById('g_location').value
+                },
+                status: "Shift Started",
+                timestamp: Date.now()
+            });
+
+            // Simulate AI Gyro movement recognition
+            statusInterval = setInterval(() => {
+                const statuses = ["Walking", "Sitting", "Patrol", "Going up an elevator", "Climbing steps"];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                update(guardRef, { status: randomStatus, timestamp: Date.now() });
+                document.getElementById('current-status').innerHTML = `<strong>${randomStatus}</strong>`;
+            }, 5000);
         };
 
         window.endShift = function() {
-            const name = document.getElementById('guardName').value;
+            const name = document.getElementById('g_name').value;
+            clearInterval(statusInterval);
+            update(ref(database, 'active_shifts/' + name), { status: "Offline", timestamp: Date.now() });
             document.getElementById('setup-screen').style.display = 'block';
             document.getElementById('active-screen').style.display = 'none';
-            
-            updateFirebaseStatus(name, "Shift Ended");
         };
-
-        window.updateFirebaseStatus = function(guardName, currentStatus) {
-            const statusRef = ref(database, 'active_shifts/' + guardName);
-            set(statusRef, {
-                status: currentStatus,
-                timestamp: Date.now()
-            }).then(() => {
-                console.log(`Successfully sent status: ${currentStatus}`);
-                document.getElementById('gyro-data').innerHTML = `Current Status Sent: <br><strong style="font-size: 1.2em;">${currentStatus}</strong>`;
-            }).catch((error) => {
-                console.error("Error writing to Firebase:", error);
-            });
-        };
-
-        // Simulate status changes every 5 seconds while shift is active
-        setInterval(() => {
-            if(document.getElementById('active-screen').style.display === 'block') {
-                const statuses = ["Walking", "Sitting", "Patrol", "Elevator"];
-                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-                updateFirebaseStatus(document.getElementById('guardName').value, randomStatus);
-            }
-        }, 5000);
     </script>
 </body>
 </html>
