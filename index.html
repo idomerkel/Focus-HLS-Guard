@@ -1,143 +1,70 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guard Hub - FOCUS HLS</title>
-    <style>
-        :root {
-            --bg-dark: #0a0f1c;
-            --cyber-blue: #00d2ff;
-            --focus-orange: #f07d00;
-            --text-light: #e0eaf5;
-        }
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px;
-            margin: 0;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            border: 1px solid var(--cyber-blue);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
-        }
-        h2 { color: var(--focus-orange); text-align: center; }
-        input, button {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            background: #111a2e;
-            border: 1px solid var(--cyber-blue);
-            color: white;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background: var(--focus-orange);
-            border: none;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        button:hover { background: #ff911a; box-shadow: 0 0 10px var(--focus-orange); }
-        .data-readout {
-            font-family: monospace;
-            background: #000;
-            padding: 10px;
-            color: var(--cyber-blue);
-            margin-top: 20px;
-            border-radius: 4px;
-        }
-    </style>
-</head>
-<body>
+<script type="module">
+    // 1. Import the new Modular Firebase libraries from the CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-<div class="container">
-    <h2>FOCUS HLS - Guard Interface</h2>
-    
-    <div id="setup-screen">
-        <input type="text" id="guardName" placeholder="Guard Name" required>
-        <input type="text" id="tagNumber" placeholder="Tag Number">
-        <input type="text" id="location" placeholder="Post Location (e.g., North Gate)">
-        <button onclick="startShift()">Start Shift & Enable Sensors</button>
-    </div>
+    // 2. Your exact Firebase configuration (with the databaseURL added)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAB2OJTPCyJaZ0BpE-FAEKdPW143VE3YDo",
+      authDomain: "focushls-live.firebaseapp.com",
+      databaseURL: "https://focushls-live-default-rtdb.firebaseio.com", // <-- Added this
+      projectId: "focushls-live",
+      storageBucket: "focushls-live.firebasestorage.app",
+      messagingSenderId: "155686668050",
+      appId: "1:155686668050:web:ec06db6910733f53bad5cb"
+    };
 
-    <div id="active-screen" style="display: none;">
-        <h3 id="status-text" style="color: var(--cyber-blue);">Shift Active</h3>
-        <p>Streaming sensor data to headquarters...</p>
-        <div class="data-readout" id="gyro-data">Waiting for sensor data...</div>
-        <button onclick="endShift()" style="background: #ff3333;">End Shift</button>
-    </div>
-</div>
+    // 3. Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
 
-<script>
-    let isStreaming = false;
-
-    async function startShift() {
+    // Make functions globally available since we are inside a module
+    window.startShift = function() {
         const name = document.getElementById('guardName').value;
         if (!name) return alert("Please enter your name.");
-
-        // iOS 13+ requires explicit permission to access motion sensors
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            try {
-                const permissionState = await DeviceMotionEvent.requestPermission();
-                if (permissionState === 'granted') {
-                    beginStreaming();
-                } else {
-                    alert("Sensor access denied.");
-                }
-            } catch (error) {
-                console.error(error);
-                alert("Error requesting sensor access.");
-            }
-        } else {
-            // Non-iOS devices usually don't need explicit permission
-            beginStreaming();
-        }
-    }
-
-    function beginStreaming() {
+        
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('active-screen').style.display = 'block';
-        isStreaming = true;
-
-        window.addEventListener('devicemotion', handleMotion, true);
         
-        // TODO: Initialize Firebase/WebSocket here
-        // Notify server that this guard's shift has started
-    }
+        // Push the initial "Shift Started" status to Firebase
+        updateFirebaseStatus(name, "Shift Started");
+    };
 
-    function handleMotion(event) {
-        if (!isStreaming) return;
-
-        // Capture Acceleration (including gravity)
-        const x = event.accelerationIncludingGravity.x ? event.accelerationIncludingGravity.x.toFixed(2) : 0;
-        const y = event.accelerationIncludingGravity.y ? event.accelerationIncludingGravity.y.toFixed(2) : 0;
-        const z = event.accelerationIncludingGravity.z ? event.accelerationIncludingGravity.z.toFixed(2) : 0;
-
-        document.getElementById('gyro-data').innerHTML = `X: ${x} <br>Y: ${y} <br>Z: ${z}`;
-
-        // TODO: Send this data to your Server/Firebase Database
-        /* Example:
-           database.ref('guards/' + guardId + '/sensors').set({ x: x, y: y, z: z });
-        */
-    }
-
-    function endShift() {
-        isStreaming = false;
-        window.removeEventListener('devicemotion', handleMotion, true);
+    window.endShift = function() {
+        const name = document.getElementById('guardName').value;
         document.getElementById('setup-screen').style.display = 'block';
         document.getElementById('active-screen').style.display = 'none';
         
-        // TODO: Notify server shift has ended
-    }
+        updateFirebaseStatus(name, "Shift Ended");
+    };
+
+    // 4. THE BRIDGE: This function pushes your Edge AI status to the database
+    window.updateFirebaseStatus = function(guardName, currentStatus) {
+        const statusRef = ref(database, 'active_shifts/' + guardName);
+        
+        set(statusRef, {
+            status: currentStatus,
+            timestamp: Date.now()
+        }).then(() => {
+            console.log(`Successfully sent status: ${currentStatus}`);
+            document.getElementById('gyro-data').innerHTML = `Current Status Sent: <br><strong>${currentStatus}</strong>`;
+        }).catch((error) => {
+            console.error("Error writing to Firebase:", error);
+        });
+    };
+
+    // --- YOUR EDGE AI LOGIC GOES HERE ---
+    // Instead of streaming raw gyro data, you would hook up your existing 
+    // local recognition code here. When your code detects a change, simply call:
+    // updateFirebaseStatus(document.getElementById('guardName').value, "Walking");
+    
+    // For testing right now, let's simulate status changes every 5 seconds
+    setInterval(() => {
+        if(document.getElementById('active-screen').style.display === 'block') {
+            const statuses = ["Walking", "Sitting", "Patrol", "Elevator"];
+            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            updateFirebaseStatus(document.getElementById('guardName').value, randomStatus);
+        }
+    }, 5000);
+
 </script>
-</body>
-</html>
